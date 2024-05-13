@@ -171,59 +171,59 @@ int main(int argc, char *argv[])
     return EINVAL;
   }
 
-  bool finished = false;
   u32 time = 0;
+  u32 num_executed = 0;
 
-  while (!finished)
+  while (num_executed != size)
   {
 
     for(int j = 0; j < size; j++)
     {
       if(data[j].arrival_time == time){
+        printf("QUEUING: %d\n", data[j].pid);
         data[j].remaining_time = data[j].burst_time;
         data[j].initiated = true;
         TAILQ_INSERT_TAIL(&list, &data[j], pointers);
       }
     }
 
-
     
-
     struct process *proc = TAILQ_FIRST(&list);
     bool executed = false;
-    for(int i = 0; i < quantum_length; i++)
+    if(proc != NULL)
     {
-      proc->start_time = time;
-
-      printf("time: %d\n",time);
-
-      if(i != 0)
+      if(proc->burst_time == proc->remaining_time)
       {
-        for(int j = 0; j < size; j++)
-        {
-          if(data[j].arrival_time == time){
-            data[j].remaining_time = data[j].burst_time;
-            TAILQ_INSERT_TAIL(&list, &data[j], pointers);
-          }
-        }
-      }
-
-      if (!proc->initiated)
-      {
-        proc->initiated = true;
         proc->start_time = time;
       }
-
-      proc->remaining_time -= 1;
-      if (proc->remaining_time == 0){
-        executed = true;
-        break;
+      u32 time_elapsed = quantum_length;
+      if (quantum_length > proc->remaining_time)
+      {
+        time_elapsed = proc->remaining_time;
+        //printf("TIME ELAPSED: %d\n", time_elapsed);
       }
+      for(int i = 0; i < size; i++)
+      {
+        if(data[i].arrival_time > time && data[i].arrival_time <= time + quantum_length)
+        {
+          //printf("QUEUING: %d\n", data[i].pid);
+          data[i].remaining_time = data[i].burst_time;
+          data[i].initiated = true;
+          TAILQ_INSERT_TAIL(&list, &data[i], pointers);
+        }
+      }
+      time += time_elapsed;
+      proc->remaining_time -= time_elapsed;
 
+      if (proc->remaining_time == 0)
+      {
+        executed = true;
+      }
+    }
+    else{
       time++;
     }
-    
-    // Update waiting and respone times for proc if process is finished
+  
     if(executed)
     {
       TAILQ_REMOVE(&list, proc, pointers);
@@ -231,7 +231,8 @@ int main(int argc, char *argv[])
       proc->response_time = proc->start_time - proc->arrival_time;
       total_waiting_time += proc->waiting_time;
       total_response_time += proc->response_time;
-      time++;
+      num_executed += 1;
+      //printf("EXECUTED: %d\n",proc->pid);
     }
     else
     {
