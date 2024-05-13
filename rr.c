@@ -24,7 +24,7 @@ struct process
   u32 waiting_time;
   u32 response_time;
   u32 remaining_time;
-  u32 start_exect_time;
+  u32 start_time;
   bool initiated;
   /* End of "Additional fields here" */
 };
@@ -146,6 +146,9 @@ void init_processes(const char *path,
   close(fd);
 }
 
+void add_to_queue(u32 size, struct process *data, u32 time, struct process_list list, bool *checked_time);
+
+
 int main(int argc, char *argv[])
 {
   if (argc != 3)
@@ -165,64 +168,46 @@ int main(int argc, char *argv[])
   u32 total_response_time = 0;
 
   /* Your code here */
-
-  for (u32 i = 0; i < size; i++) 
+  if (quantum_length <= 0)
   {
-    TAILQ_INSERT_TAIL(&list, &data[i], pointers);
-    data[i].remaining_time = data[i].burst_time;
-    data[i].initiated = false;
+    return EINVAL;
   }
 
   u32 time = 0;
-
-  while (!TAILQ_EMPTY(&list))
-  {
-    struct process *proc;
-    bool executed = false;
-    
-    TAILQ_FOREACH(proc, &list, pointers) 
-    {
-      if (proc->arrival_time <= time && proc->remaining_time > 0) 
-      {
-        executed = true;
-        if (!proc->initiated)
-        {
-          proc->response_time = time - proc->arrival_time;
-          total_response_time += proc->response_time;
-          proc->initiated = true;
-        }
-
-        u32 exec_time = (proc-> remaining_time < quantum_length) ? proc->remaining_time : quantum_length;
-        proc->remaining_time -= exec_time;
-        time += exec_time;
-
-        struct process *other_proc;
-        TAILQ_FOREACH(other_proc, &list, pointers)
-        {
-          if (other_proc != proc && other_proc->arrival_time <= time && other_proc->remaining_time > 0)
-          {
-            other_proc->waiting_time += exec_time;
-          }
-        }
-      
+  bool checked_time = false;
   
+  add_to_queue(size,data,time,list,&checked_time);
 
-        if (proc->remaining_time == 0)
-        {
-          TAILQ_REMOVE(&list, proc, pointers);
-        }
+  while(!TAILQ_EMPTY(&list))
+  {
+    struct process *proc = TAILQ_FIRST(&list);
+    bool executed = false;
+    for(int i = 0; i < quantum_length; i++)
+    {
+      add_to_queue(size,data,time,list,&checked_time);
+
+      if (!proc->initiated)
+      {
+        proc->initiated = true;
+        proc->start_time = time;
+      }
+
+      time++;
+      proc->remaining_time--;
+      if (proc->remaining_time == 0){
+        executed = true;
+        break;
       }
     }
-
-    if (!executed)
+    
+    // Update waiting and respone times for proc if process is finished
+    if(executed)
     {
-      time++;
+      proc->waiting_time = time - proc->arrival_time - proc->burst_time;
+      proc->response_time = proc->start_time - proc->arrival_time;
+      total_waiting_time = proc->waiting_time;
+      total_response_time = proc->response_time;
     }
-  }
-
-  for (u32 i = 0; i < size; i++)
-  {
-    total_waiting_time += data[i].waiting_time;
   }
 
   /* End of "Your code here" */
@@ -232,4 +217,27 @@ int main(int argc, char *argv[])
 
   free(data);
   return 0;
+}
+
+
+
+void add_to_queue(u32 size, struct process *data, u32 time, struct process_list list, bool *checked_time)
+{
+  if (*checked_time)
+  {
+    *checked_time = false;
+    return;
+  }
+  
+  *checked_time = false;
+  for (int i = 0; i < size; i++)
+  {
+    if (data[i].arrival_time == time)
+    {
+      data[i].remaining_time = data[i].burst_time;
+      data[i].start_time = time;
+      data[i].initiated = false;
+      TAILQ_INSERT_TAIL(&list,data[i],data[i].pointers);
+    }
+  }
 }
