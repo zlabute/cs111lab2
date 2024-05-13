@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
     for(int j = 0; j < size; j++)
     {
       if(data[j].arrival_time == time && !data[j].initiated){
-        printf("QUEUING: %d\n", data[j].pid);
+
         data[j].remaining_time = data[j].burst_time;
         data[j].initiated = true;
         TAILQ_INSERT_TAIL(&list, &data[j], pointers);
@@ -207,15 +207,18 @@ int main(int argc, char *argv[])
         time_elapsed = proc->remaining_time;
         //printf("TIME ELAPSED: %d\n", time_elapsed);
       }
+
+      for(u32 j = time; j <= time_elapsed + time; j++){
       for(int i = 0; i < size; i++)
       {
-        if(data[i].arrival_time > time && data[i].arrival_time <= time + quantum_length && !data[i].initiated)
+        if(j == data[i].arrival_time && !data[i].initiated)
         {
-          printf("QUEUING: %d\n", data[i].pid);
+          //printf("Q: %d\n",data[i].pid);
           data[i].remaining_time = data[i].burst_time;
           data[i].initiated = true;
           TAILQ_INSERT_TAIL(&list, &data[i], pointers);
         }
+      }
       }
       time += time_elapsed;
       proc->remaining_time -= time_elapsed;
