@@ -171,6 +171,11 @@ int main(int argc, char *argv[])
     return EINVAL;
   }
 
+  for (int i = 0; i < size; i++)
+  {
+    data[i].initiated = false;
+  }
+
   u32 time = 0;
   u32 num_executed = 0;
 
@@ -179,7 +184,7 @@ int main(int argc, char *argv[])
 
     for(int j = 0; j < size; j++)
     {
-      if(data[j].arrival_time == time){
+      if(data[j].arrival_time == time && !data[j].initiated){
         printf("QUEUING: %d\n", data[j].pid);
         data[j].remaining_time = data[j].burst_time;
         data[j].initiated = true;
@@ -204,9 +209,9 @@ int main(int argc, char *argv[])
       }
       for(int i = 0; i < size; i++)
       {
-        if(data[i].arrival_time > time && data[i].arrival_time <= time + quantum_length)
+        if(data[i].arrival_time > time && data[i].arrival_time <= time + quantum_length && !data[i].initiated)
         {
-          //printf("QUEUING: %d\n", data[i].pid);
+          printf("QUEUING: %d\n", data[i].pid);
           data[i].remaining_time = data[i].burst_time;
           data[i].initiated = true;
           TAILQ_INSERT_TAIL(&list, &data[i], pointers);
